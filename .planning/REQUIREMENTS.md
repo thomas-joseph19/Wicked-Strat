@@ -8,9 +8,9 @@ Implement a robust, purely mechanical backtesting engine for the Wicked LVN/Ledg
 ## Functional Requirements
 
 ### 1. Data Ingestion & Sanitization
-*   **Req 1.1:** Successfully load and parse `nq_1min_10y.parquet`.
-*   **Req 1.2:** Handle UTC to Eastern Time timezone conversions properly, especially concerning the 6:00 PM ET operational bounds.
-*   **Req 1.3:** Convert floats to fixed-integer precision (e.g., price * 100) to ensure zero indexing collisions or float-point errors for tick generation (0.25 tick).
+*   [x] **Req 1.1:** Successfully load and parse `nq_1min_10y.parquet`. (Phase 1)
+*   [x] **Req 1.2:** Handle UTC to Eastern Time timezone conversions properly, especially concerning the 6:00 PM ET operational bounds. (Phase 1)
+*   [x] **Req 1.3:** Convert floats to fixed-integer precision (e.g., price * 100) to ensure zero indexing collisions or float-point errors for tick generation (0.25 tick). (Phase 1)
 
 ### 2. Volume Profile & Structure Components
 *   **Req 2.1:** Distribute 1-min bar volume linearly across all price levels (`low` to `high` inclusive) within a bar to create synthetic tick volume.

@@ -21,7 +21,7 @@ High-precision, mathematically rigorous entries based on volume anomaly rejectio
 ## Requirements
 
 ### Validated
-(None yet — ship to validate)
+- ✓ [Ingestion Pipeline] — Ingest 10y NQ data with timezone-aware session bounds and integer scaling (Phase 1)
 
 ### Active
 - [ ] Construct multi-session Session Volume Profiles algorithmically from 1-min data.
@@ -62,4 +62,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-03 after initialization*
+*Last updated: 2026-04-03 after Phase 1 completion*
