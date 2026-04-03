@@ -13,9 +13,9 @@ Implement a robust, purely mechanical backtesting engine for the Wicked LVN/Ledg
 *   [x] **Req 1.3:** Convert floats to fixed-integer precision (e.g., price * 100) to ensure zero indexing collisions or float-point errors for tick generation (0.25 tick). (Phase 1)
 
 ### 2. Volume Profile & Structure Components
-*   **Req 2.1:** Distribute 1-min bar volume linearly across all price levels (`low` to `high` inclusive) within a bar to create synthetic tick volume.
-*   **Req 2.2:** Calculate 24-hour windowed SVP (6 PM to 6 PM ET), computing V_total, VAV (70%), VAH, VAL, and the POC.
-*   **Req 2.3:** Detect Raw LVNs utilizing the 3-tick rolling average and statistical deviation thresholds defined in the spec.
+*   [x] **Req 2.1:** Distribute 1-min bar volume linearly across all price levels (`low` to `high` inclusive) within a bar to create synthetic tick volume. (Phase 2)
+*   [x] **Req 2.2:** Calculate 24-hour windowed SVP (6 PM to 6 PM ET), computing V_total, VAV (70%), VAH, VAL, and the POC. (Phase 2)
+*   [x] **Req 2.3:** Detect Raw LVNs utilizing the 3-tick rolling average and statistical deviation thresholds defined in the spec. (Phase 2)
 *   **Req 2.4:** Filter LVNs across mutli-sessions (prior 2 sessions mapping), POC proximity, minimum separation, and real-time consolidation invalidation.
 *   **Req 2.5:** Calculate 30-min interval TPO distributions accurately (tracking session midpoint splits to evaluate 0.55 / 0.45 threshold daily bias).
 *   **Req 2.6:** Detect single prints and single print zones, applying the < 0.15 V_mean volume confirmation and verifying overnight behavior respect logic.
