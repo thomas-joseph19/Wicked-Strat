@@ -1,7 +1,0 @@
-*.parquet
-*.pyc
-__pycache__/
-.env
-.vscode/
-.ipynb_checkpoints/
-*.log
