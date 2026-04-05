@@ -36,15 +36,21 @@ created: 2026-04-05
 
 ## Per-Task Verification Map
 
-| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 4-01-01 | 01 | 1 | ISMT-01, ISMT-02 | unit | `python -m pytest tests/phase04/test_ismt.py -q` | ❌ W0 | ⬜ pending |
-| 4-01-02 | 01 | 1 | ISMT-03 | unit | `python -m pytest tests/phase04/test_ismt.py::test_ismt_signal_fields -q` | ❌ W0 | ⬜ pending |
-| 4-02-01 | 02 | 1 | SMT-01, SMT-02 | unit | `python -m pytest tests/phase04/test_smt_correlation.py -q` | ❌ W0 | ⬜ pending |
-| 4-02-02 | 02 | 1 | SMT-03, SMT-04, SMT-05 | unit | `python -m pytest tests/phase04/test_smt_divergence.py -q` | ❌ W0 | ⬜ pending |
-| 4-03-01 | 03 | 2 | SIG-01, SIG-02, SIG-03 | unit | `python -m pytest tests/phase04/test_structural_confirmation.py -q` | ❌ W0 | ⬜ pending |
-| 4-04-01 | 04 | 2 | ENTRY-01, ENTRY-02 | unit | `python -m pytest tests/phase04/test_entry_three_step.py -q` | ❌ W0 | ⬜ pending |
-| 4-04-02 | 04 | 2 | ENTRY-03, ENTRY-04, ENTRY-05 | unit | `python -m pytest tests/phase04/test_entry_aggressive_ledge.py -q` | ❌ W0 | ⬜ pending |
+Aligned with `04-00-PLAN.md` … `04-04-PLAN.md` frontmatter `wave` and `<verify>` / task acceptance commands.
+
+| Task ID | Plan | Wave | Requirement(s) | Test type | Automated command | File exists | Status |
+|---------|------|------|----------------|-----------|-------------------|-------------|--------|
+| 4-00-01 | 00 | 0 | pytest layout | config | `python -m pytest tests/phase04/ --collect-only -q` | `pyproject.toml` | ⬜ pending |
+| 4-00-02 | 00 | 0 | EXEC-01, SIG-03, fixtures | smoke + collect | `python -m pytest tests/phase04/ --collect-only -q` | `tests/phase04/conftest.py`, `src/position.py` | ⬜ pending |
+| 4-01-01 | 01 | 1 | ISMT-01..03 (API) | import | `python -c "from src.ismt import IsmtSignal; print(IsmtSignal.__name__)"` | `src/ismt.py` | ⬜ pending |
+| 4-01-02 | 01 | 1 | ISMT-01..03 | unit | `python -m pytest tests/phase04/test_ismt.py -q --tb=short` | `tests/phase04/test_ismt.py` | ⬜ pending |
+| 4-02-01 | 02 | 1 | SMT-01, SMT-02 | import | `python -c "import importlib; importlib.import_module('src.smt')"` | `src/smt.py` | ⬜ pending |
+| 4-02-02 | 02 | 1 | SMT-01..05 | unit | `python -m pytest tests/phase04/test_smt.py -q --tb=short` | `tests/phase04/test_smt.py` | ⬜ pending |
+| 4-03-01 | 03 | 2 | SIG-01..03 (selector API) | import | `python -c "import importlib; importlib.import_module('src.entry')"` | `src/entry.py` | ⬜ pending |
+| 4-03-02 | 03 | 2 | SIG-01..03 | unit | `python -m pytest tests/phase04/test_structural_confirmation.py -q --tb=short` | `tests/phase04/test_structural_confirmation.py` | ⬜ pending |
+| 4-04-01 | 04 | 3 | ENTRY-01..05 (entry wiring) | import + grep | `python -c "import importlib; importlib.import_module('src.entry'); importlib.import_module('src.position')"` | `src/entry.py`, `src/position.py` | ⬜ pending |
+| 4-04-02 | 04 | 3 | ENTRY-05 | unit | `python -m pytest tests/phase04/test_entry_checklist.py -q --tb=short` | `tests/phase04/test_entry_checklist.py` | ⬜ pending |
+| 4-04-03 | 04 | 3 | ENTRY-01..04, D-14 | unit | `python -m pytest tests/phase04/test_entry_three_step.py tests/phase04/test_entry_aggressive_ledge.py -q --tb=short` | `test_entry_three_step.py`, `test_entry_aggressive_ledge.py` | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -55,6 +61,7 @@ created: 2026-04-05
 - [ ] `tests/phase04/conftest.py` — minimal bar streams, swing/LVN/SP stubs
 - [ ] `tests/phase04/__init__.py` — package marker
 - [ ] `pyproject.toml` — pytest config + dev dependency group
+- [ ] `src/position.py` — `TradeSetup` + Phase 5 stubs including `enter_from_setup` hook per `04-04-PLAN.md`
 
 ---
 
