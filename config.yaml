@@ -1,0 +1,85 @@
+# config.yaml — Wicked LVN/Ledge Strategy Parameters
+
+nq:
+  symbol: "NQ"
+  tick_size: 0.25
+  point_value: 20.0
+  commission_per_side: 2.25
+
+es:
+  symbol: "ES"
+  tick_size: 0.25
+  point_value: 50.0
+  commission_per_side: 2.25
+
+thresholds:
+  atr_period_fast: 5
+  atr_period_slow: 20
+  
+  # VP / LVN
+  lvn_volume_threshold: 0.5
+  lvn_strength_min: 0.30
+  lvn_poc_buffer_ticks: 3
+  lvn_min_separation_ticks: 4
+  lvn_consolidation_bars: 3
+  lvn_consolidation_crossings: 4
+  # Wider alignment → more valid_lvns; PDF: LVNs align across profiles
+  confluence_alignment_ticks: 4.0
+  confluence_pass_if_no_prior_history: true
+  approach_min_prior_closes: 3
+  three_step_require_respected_sp: false
+  # Target ~≥1 trade / 2 sessions: auto-widen filters after dry streak (backtest only)
+  backtest_relax_after_sessions_without_trade: 2
+  relax_confluence_alignment_ticks: 10.0
+  relax_confluence_pass_if_no_prior_history: true
+  relax_three_step_require_respected_sp: false
+  relax_approach_min_prior_closes: 2
+  relax_aggressive_ledge_window_end: "11:30"
+  
+  # TPO Bias
+  tpo_upper_threshold: 0.55
+  tpo_lower_threshold: 0.45
+  
+  # Single Prints
+  sp_volume_filter: 0.15
+  sp_min_height_ticks: 4
+  sp_overnight_buffer_ticks: 2
+  
+  # ISMT / SMT
+  smt_min_correlation: 0.70
+  smt_nq_move_atr_mult: 0.3
+  smt_es_fail_atr_mult: 0.1
+  ismt_lookback: 10
+  ismt_sweep_max_atr_mult: 2.0
+  confirmed_swing_lookback: 5
+  min_swing_ticks: 4
+  
+  # Entry / Execution
+  entry_signal_lookback: 5
+  aggressive_ledge_window_start: "09:25"
+  aggressive_ledge_window_end: "10:00"
+  aggressive_ledge_size_multiplier: 0.5
+  stop_loss_atr_mult: 0.5
+  stop_loss_min_ticks: 4
+  stop_loss_max_atr_mult: 1.5
+  take_profit_1_exit_pct: 0.60
+  max_trades_per_session: 3
+  eod_force_close_time: "15:45"
+  account_size: 100000.0
+  risk_per_trade: 0.01
+  # Weighted confidence entry (replaces strict AND of pillars when true)
+  use_entry_confidence_model: true
+  entry_confidence_threshold: 0.6
+  relax_entry_confidence_threshold: 0.5
+  conf_weight_lvn_valid: 0.10
+  conf_weight_bias_aligned: 0.14
+  conf_weight_bias_neutral: 0.05
+  conf_weight_approach_full: 0.24
+  conf_weight_approach_touch_only: 0.08
+  conf_weight_approach_closes_only: 0.06
+  conf_weight_trigger_close: 0.16
+  conf_weight_structural: 0.16
+  conf_weight_respected_sp: 0.12
+  conf_weight_aggressive_window_bonus: 0.05
+
+output_dir: "D:/Algorithms/Wicked Backtest Results"

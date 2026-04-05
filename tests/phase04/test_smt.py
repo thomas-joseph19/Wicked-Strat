@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.entry import get_structural_confirmation
 from src.smt import (
     SmtSignal,
     detect_smt_at_bar,
@@ -122,6 +123,22 @@ def test_smt_bullish_mirror():
     assert sig.direction == "LONG"
 
 
+def test_smt_visible_to_structural_selector_on_detection_bar():
+    """Regression: confirmed_at must be detection bar i, not swing bar, for D-05 [i-4, i] window."""
+    n = 30
+    df = _make_stream(n)
+    atr = 10.0
+    i = 25
+    pnq = make_swing(5, 20, 100.0, "HIGH")
+    nnq = make_swing(8, 23, 103.1, "HIGH")
+    pes = make_swing(5, 21, 200.0, "HIGH")
+    nes = make_swing(8, 24, 200.9, "HIGH")
+    sig = detect_smt_at_bar(df, i, [pnq, nnq], [pes, nes], atr20_i=atr)
+    assert sig is not None
+    picked = get_structural_confirmation("BEARISH", i, [], [sig])
+    assert picked is sig
+
+
 def test_smt_signal_fields():
     n = 30
     df = _make_stream(n)
@@ -134,4 +151,27 @@ def test_smt_signal_fields():
     sig = detect_smt_at_bar(df, i, [pnq, nnq], [pes, nes], atr20_i=atr)
     assert sig.correlation_at_signal == pytest.approx(sig.correlation_at_signal)
     assert np.isfinite(sig.divergence_strength)
-    assert sig.confirmed_at == max(nnq.confirmed_at, nes.confirmed_at)
+
+def test_smt_no_spam_after_window():
+    """Ensure SMT only fires in [align, align+3] window to avoid 166 repeating signals per day."""
+    n = 100
+    df = _make_stream(n)
+    atr = 10.0
+    
+    # Swings confirmed at bar 24 (align = 24)
+    pnq = make_swing(5, 20, 100.0, "HIGH")
+    nnq = make_swing(8, 24, 103.1, "HIGH")  # confirmed at 24
+    pes = make_swing(5, 20, 200.0, "HIGH")
+    nes = make_swing(8, 24, 200.9, "HIGH")  # confirmed at 24
+    
+    # 1. First possible bar (j=24, align=24) -> OK
+    sig24 = detect_smt_at_bar(df, 24, [pnq, nnq], [pes, nes], atr20_i=atr)
+    assert sig24 is not None
+    
+    # 2. Within window (j=27, align=24) -> OK
+    sig27 = detect_smt_at_bar(df, 27, [pnq, nnq], [pes, nes], atr20_i=atr)
+    assert sig27 is not None
+    
+    # 3. Outside window (j=28, align=24) -> NO SIGNAL
+    sig28 = detect_smt_at_bar(df, 28, [pnq, nnq], [pes, nes], atr20_i=atr)
+    assert sig28 is None

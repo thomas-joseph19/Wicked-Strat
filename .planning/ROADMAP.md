@@ -94,6 +94,19 @@ Plans:
 
 ---
 
+### Phase 5.1: Backtest execution funnel — debugging & diagnostics
+**Status**: 🔲 Not started  
+**Goal**: Make it routine to explain why a session produces zero trades, zero setups, or setups without `TradeResult`s; tighten instrumentation and docs so “NEUTRAL + zero LVNs” is not confused with a silent engine bug.  
+**Context**: Session snapshots (e.g. `trade_diagnostics.json`) often show `bias: NEUTRAL`, `lvn_candidates: 0`, and `valid_lvns_after_confluence: 0` — which **preclude** entries by design; this phase validates the funnel end-to-end and adds targeted logs/tests where ambiguity remains (e.g. `setups_built > 0` vs `trades_recorded`).
+
+**Success Criteria**:
+1. A one-page “funnel checklist” (or pointer to `.planning/reports/MILESTONE_SUMMARY-v1.0-trade-pipeline.md`) is linked from `PROJECT.md` or phase CONTEXT so every developer knows required snapshot fields for a trade.
+2. `--diagnostics` output documents **per-field meaning**: which gates require `bias != NEUTRAL`, `valid_lvns >= 1`, RTH bar, ISMT/SMT (3-step only), ENTRY-05, and `Position` close with fills.
+3. At least one **regression test** or scripted fixture where a session with `BULLISH`/`BEARISH`, `valid_lvns >= 1`, and a forced minimal setup produces a non-empty `TradeResult` (or a documented assertion when simulation intentionally ends OPEN).
+4. Optional: session-level log line when **entire RTH is skipped** due to `NEUTRAL` vs skipped due to **no valid LVNs** (distinct counters already in diagnostics — verified against code paths in `full_backtest.py`).
+
+---
+
 ### Phase 6: Institutional Metrics
 **Status**: 🔲 Not started
 **Goal**: Aggregate trade results to daily P&L, compute all risk-adjusted performance metrics, and produce the final summary.md.

@@ -1,6 +1,22 @@
 """
-SMT: dual-instrument divergence with 20-bar Pearson correlation on simple returns.
-Uses columns: close_nq, close_es, is_synthetic, is_synthetic_nq, is_synthetic_es (from data_loader).
+SMT (Smart Money Tool / dual-instrument divergence) — ICT-style read across correlated products.
+
+**Idea:** While NQ and ES are highly correlated on *recent* returns, compare their *swing structure*:
+- Bearish: NQ prints a higher high (lead) while ES fails to confirm (lag / weakness).
+- Bullish: NQ prints a lower low while ES holds shallower.
+
+**Math in this module:**
+1. **Rolling correlation:** 20 consecutive *simple returns* r_t = (C_t - C_{t-1}) / C_{t-1} for NQ and ES;
+   Pearson ρ = corr(r_nq, r_es). Require ρ ≥ ``corr_min`` (default 0.70) so divergence is read only
+   when markets are usually moving together.
+2. **Divergence size (bearish example):** Let Δnq = NQ_high2 - NQ_high1, Δes = ES_high2 - ES_high1 (last two
+   confirmed highs). Require |Δnq - Δes| scaled by ATR(20): NQ extends (Δnq ≥ 0.3·ATR), ES is flat-to-weak
+   (Δes ≤ 0.1·ATR). Bullish uses lows with mirrored inequalities.
+3. **Timing:** Swings on NQ and ES must confirm within 3 bars of each other (|t_nq - t_es| ≤ 3).
+
+**``confirmed_at`` semantics:** Set to the **detection bar index** ``i`` (bar where this signal is emitted),
+not the swing confirmation index, so ``get_structural_confirmation``'s [i-4, i] window can see the signal on
+the same bar as LVN entry evaluation. (Swing anchors remain on ``nq_swing`` / ``es_swing`` for charts.)
 """
 
 from __future__ import annotations
@@ -24,6 +40,8 @@ class SmtSignal:
     es_swing: SwingPoint
     signal_kind: Literal["SMT"] = "SMT"
     invalidated: bool = False
+    #: max(nq_swing.confirmed_at, es_swing.confirmed_at) — swing alignment bar (for diagnostics/plots).
+    swing_alignment_bar: int = 0
 
 
 def _simple_returns(close: np.ndarray) -> np.ndarray:
@@ -114,37 +132,43 @@ def detect_smt_at_bar(
         pnq, nnq = nq_highs[-2], nq_highs[-1]
         pes, nes = es_highs[-2], es_highs[-1]
         if abs(nnq.confirmed_at - nes.confirmed_at) <= 3:
-            nq_move = nnq.price - pnq.price
-            es_move = nes.price - pes.price
-            if nq_move >= 0.3 * atr20_i and es_move <= 0.1 * atr20_i:
-                div = (nq_move - es_move) / atr20_i
-                ca = max(nnq.confirmed_at, nes.confirmed_at)
-                return SmtSignal(
-                    direction="SHORT",
-                    confirmed_at=ca,
-                    divergence_strength=div,
-                    correlation_at_signal=corr,
-                    nq_swing=nnq,
-                    es_swing=nes,
-                )
+            align = max(nnq.confirmed_at, nes.confirmed_at)
+            # D-15: Windowed detection — only fire if bar i is within [align, align+3].
+            # This prevents 166 repeating signals per session by tying signal to swing confirmation event.
+            if align <= i <= align + 3:
+                nq_move = nnq.price - pnq.price
+                es_move = nes.price - pes.price
+                if nq_move >= 0.3 * atr20_i and es_move <= 0.1 * atr20_i:
+                    div = (nq_move - es_move) / atr20_i
+                    return SmtSignal(
+                        direction="SHORT",
+                        confirmed_at=i,
+                        divergence_strength=div,
+                        correlation_at_signal=corr,
+                        nq_swing=nnq,
+                        es_swing=nes,
+                        swing_alignment_bar=align,
+                    )
 
     # Bullish (LONG): NQ LL vs ES HL
     if len(nq_lows) >= 2 and len(es_lows) >= 2:
         pnq, nnq = nq_lows[-2], nq_lows[-1]
         pes, nes = es_lows[-2], es_lows[-1]
         if abs(nnq.confirmed_at - nes.confirmed_at) <= 3:
-            nq_move = nnq.price - pnq.price
-            es_move = nes.price - pes.price
-            if nq_move <= -0.3 * atr20_i and es_move >= -0.1 * atr20_i:
-                div = (es_move - nq_move) / atr20_i
-                ca = max(nnq.confirmed_at, nes.confirmed_at)
-                return SmtSignal(
-                    direction="LONG",
-                    confirmed_at=ca,
-                    divergence_strength=div,
-                    correlation_at_signal=corr,
-                    nq_swing=nnq,
-                    es_swing=nes,
-                )
+            align = max(nnq.confirmed_at, nes.confirmed_at)
+            if align <= i <= align + 3:
+                nq_move = nnq.price - pnq.price
+                es_move = nes.price - pes.price
+                if nq_move <= -0.3 * atr20_i and es_move >= -0.1 * atr20_i:
+                    div = (es_move - nq_move) / atr20_i
+                    return SmtSignal(
+                        direction="LONG",
+                        confirmed_at=i,
+                        divergence_strength=div,
+                        correlation_at_signal=corr,
+                        nq_swing=nnq,
+                        es_swing=nes,
+                        swing_alignment_bar=align,
+                    )
 
     return None

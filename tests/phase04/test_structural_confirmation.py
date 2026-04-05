@@ -29,6 +29,7 @@ def _smt(ca: int) -> SmtSignal:
         correlation_at_signal=0.9,
         nq_swing=nq,
         es_swing=es,
+        swing_alignment_bar=ca,
     )
 
 
@@ -52,11 +53,11 @@ def test_sig_drops_invalidated():
     assert picked is good
 
 
-def test_sig_tiebreak_prefers_smt():
+def test_sig_tiebreak_prefers_ismt():
     ismt = _ismt(250)
     smt = _smt(250)
     picked = get_structural_confirmation("BULLISH", 252, [ismt], [smt])
-    assert picked is smt
+    assert picked is ismt
 
 
 def test_sig_filters_by_direction():

@@ -42,15 +42,15 @@ def _sp():
     return [make_sp_zone(101.0, 102.0, True)]
 
 
-def test_aggressive_long_0928_rejected():
+def test_aggressive_long_0924_rejected_before_window():
     st = AggressiveLvnState()
-    bar = _bar_at(9, 28, 101.0, o=100.85)
+    bar = _bar_at(9, 24, 101.0, o=100.85)
     assert evaluate_aggressive_long(0, bar, _lvn_aggr(), "BULLISH", 2.0, 4.0, _sp(), st) is None
 
 
-def test_aggressive_long_0932_accepted():
+def test_aggressive_long_0928_accepted_in_window():
     st = AggressiveLvnState()
-    bar = _bar_at(9, 32, 101.0, o=100.85)
+    bar = _bar_at(9, 28, 101.0, o=100.85)
     setup = evaluate_aggressive_long(0, bar, _lvn_aggr(), "BULLISH", 2.0, 4.0, _sp(), st)
     assert setup is not None
     assert setup.position_size_scale == 0.5

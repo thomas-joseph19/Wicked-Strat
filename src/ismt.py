@@ -1,5 +1,21 @@
 """
-ISMT (single-instrument) detection on NQ. Bar-close only; window anchored to SH2/SL2 confirmed_at (D-01/D-02).
+ISMT — single-instrument market structure trap (NQ only), bar-close.
+
+**Idea:** After a *second* swing in the same direction extends beyond the prior swing (micro BOS), the
+*first* swing's extreme is used as the trap level; if price *reclaims* through that level within a tight
+window, flag a directional ISMT (liquidity sweep + rejection read).
+
+**Math (bearish / SHORT):**
+- Take last two confirmed *high* swings SH1, SH2 with SH2.price > SH1.price (higher high).
+- Spacing: 1 ≤ SH2.confirmed_at − SH1.confirmed_at ≤ 10 bars.
+- Sweep size SH2 − SH1 must be < 2 × ATR(20) at the evaluation bar (cap huge news spikes).
+- On bar index ``j`` only if SH2.confirmed_at + 1 ≤ j ≤ SH2.confirmed_at + 3 and close_nq < SH1.price
+  (close back below the trapped high → bearish confirmation).
+
+**Bullish (LONG):** symmetric on two *low* swings with SL2.price < SL1.price and close > SL1.price.
+
+``confirmed_at`` is set to ``j`` (the bar where the reclaim is detected) so it aligns with
+``get_structural_confirmation``'s recent window [i−4, i] when entries are evaluated on the same bar.
 """
 
 from __future__ import annotations
