@@ -52,11 +52,20 @@
 **Goal**: Implement ISMT detection (single-instrument), SMT detection (dual-instrument with Pearson correlation filter), combine into `get_structural_confirmation()`, and implement both entry models (3-Step and Aggressive Ledge).
 **Requirements**: ISMT-01, ISMT-02, ISMT-03, SMT-01, SMT-02, SMT-03, SMT-04, SMT-05, SIG-01, SIG-02, SIG-03, ENTRY-01, ENTRY-02, ENTRY-03, ENTRY-04, ENTRY-05
 
+**Plans:** 5 plans (4 waves: 0–3)
+
+Plans:
+- [ ] `04-00-PLAN.md` — Wave 0: `tests/phase04/` + `pyproject.toml` pytest + `TradeSetup` in `position.py` (shared harness)
+- [ ] `04-01-PLAN.md` — Wave 1: `ismt.py` + `test_ismt.py` (ISMT-01..03, D-01–D-03)
+- [ ] `04-02-PLAN.md` — Wave 1: `smt.py` + `test_smt.py` (SMT-01..05, D-06, P7)
+- [ ] `04-03-PLAN.md` — Wave 2: `get_structural_confirmation` + `test_structural_confirmation.py` (SIG-01..03 per D-04–D-06; REQ SIG-02 superseded)
+- [ ] `04-04-PLAN.md` — Wave 3: 3-Step + Aggressive Ledge + ENTRY-05 + entry tests
+
 **Success Criteria**:
 1. ISMT bearish: given a known pattern (SH2 > SH1, close back below SH1 within 3 bars), the signal fires at the correct bar; given a genuine breakout (move > 2×ATR20), no ISMT is generated
 2. SMT: when rolling correlation (20-bar window) is 0.65, SMT signals are suppressed; when correlation is 0.85, SMT signals are permitted — verified with a constructed test dataset
 3. SMT signals are never generated when either NQ or ES bar is synthetic (`is_synthetic=True`)
-4. ISMT takes priority over SMT when both are present simultaneously — `get_structural_confirmation()` returns ISMT source first
+4. *(Superseded by `04-CONTEXT.md` D-04–D-06 for implementation/tests.)* ~~ISMT takes priority over SMT when both are present simultaneously — `get_structural_confirmation()` returns ISMT source first~~ **Replace with:** equal priority; **recency** (`confirmed_at`) tiebreaks; invalidated signals skipped.
 5. Aggressive Ledge: a setup at 09:28 AM is rejected (outside window); at 09:32 AM in the 9:25-10:00 window is accepted; at 10:05 AM is rejected
 6. 3-Step Model: verified that all three conditions (active LVN, structural confirmation within 5 bars, respected SP zone in trade direction) must be true simultaneously — removing any one condition suppresses the signal
 
