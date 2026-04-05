@@ -18,11 +18,11 @@ Implement ISMT detection (single-instrument NQ), SMT detection (dual-instrument 
 - **D-02:** Window opens on the bar immediately AFTER `SH2.confirmed_at` and closes 3 bars later. This means ISMT signals fire later than a human eyeballing the pattern — that's correct and intentional.
 - **D-03:** Some ISMT signals will be "stale" by confirmation time (price already moved). These will fail the recency check in `get_structural_confirmation()` and get discarded. Better to miss a signal than act on one requiring future knowledge.
 
-### Signal Priority — ⚠️ OVERRIDES SIG-02 AND PROJECT.md
-- **D-04:** **SMT takes priority over ISMT when both are present.** This REVERSES the original specification (SIG-02 said "ISMT takes priority", PROJECT.md said "ISMT > SMT"). User's rationale: SMT has external confirmation from a second instrument — it's structurally stronger by construction. A stale SMT confirmed 5 bars ago within the window beats an ISMT confirmed 1 bar ago.
+### Signal Priority — Equal Weight, Recency Tiebreak
+- **D-04:** **ISMT and SMT have equal priority.** Neither type inherently beats the other. When both are present in the 5-bar window, return the **most recent one** by `confirmed_at`. Recency is the only tiebreak — the freshest structural confirmation is the most actionable.
 - **D-05:** The 5-bar recency window is always measured backwards from the bar currently being evaluated for entry, inclusive. Evaluating bar 247 → valid signals are those confirmed at bars 243–247.
-- **D-06:** Exception: if the SMT signal's source swings have been invalidated (price traded back through them), discard the SMT signal entirely and fall back to ISMT.
-- **D-07:** In M2 feature engineering, `signal_source` feature should still encode ISMT=1, SMT=0 — but the weighting relationship is now SMT > ISMT (update SIG-03 context accordingly).
+- **D-06:** If a signal's source swings have been invalidated (price traded back through them), discard that signal entirely and use the next most recent valid signal of either type.
+- **D-07:** In M2 feature engineering, `signal_source` feature encodes ISMT=1, SMT=0 — no weighting difference at signal selection time, but the ML model may learn differential predictive power.
 
 ### "Approaches LVN" Definition
 - **D-08:** Two conditions must BOTH be true simultaneously for a long approach (bullish, approaching from above):
@@ -50,9 +50,9 @@ Implement ISMT detection (single-instrument NQ), SMT detection (dual-instrument 
 
 ### Strategy Specification
 - `.planning/REQUIREMENTS.md` — ISMT-01 through ISMT-03, SMT-01 through SMT-05, SIG-01 through SIG-03, ENTRY-01 through ENTRY-05
-  - ⚠️ **NOTE:** SIG-02 ("ISMT takes priority") is OVERRIDDEN by D-04 above. SMT takes priority.
+  - **NOTE:** SIG-02 ("ISMT takes priority") is SUPERSEDED by D-04 above — equal priority with recency tiebreak.
 - `.planning/PROJECT.md` — Strategy summary, signal priority section
-  - ⚠️ **NOTE:** "Signal priority: ISMT > SMT" is OVERRIDDEN. SMT > ISMT.
+  - **NOTE:** "Signal priority: ISMT > SMT" is SUPERSEDED — equal priority, most recent wins.
 
 ### Architecture & Design
 - `.planning/research/ARCHITECTURE.md` — RTH execution phase data flow, dual-instrument synchronization
@@ -91,8 +91,8 @@ Implement ISMT detection (single-instrument NQ), SMT detection (dual-instrument 
 
 - User specified exact approach formula: current bar low ≤ `LVN_high + 3 ticks` AND prior 3 closes strictly above `LVN_high`
 - User specified per-LVN suppression after aggressive ledge trade: once an LVN produces a trade, it's suppressed for aggressive ledge entries for the rest of the session
-- User was explicit that signal priority reversal (SMT > ISMT) is intentional: "SMT has external confirmation from a second instrument — structurally stronger by construction"
-- User specified the exception path: invalidated SMT source swings → discard SMT → fall back to ISMT
+- User revised signal priority to equal (neither ISMT nor SMT inherently wins) — recency tiebreak when both present
+- User specified the exception path: invalidated source swings → discard that signal → use next most recent valid signal of either type
 
 </specifics>
 
