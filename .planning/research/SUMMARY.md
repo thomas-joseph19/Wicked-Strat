@@ -1,28 +1,69 @@
-# Research Summary: Wicked LVN/Ledge Strategy
+# SUMMARY.md — Research Synthesis
 
-## Context
-Automated mechanical implementation of an advanced order-flow, structure, and acceptance strategy focusing on non-hindsight 1-min charting validation and execution.
+## Stack
 
-## Key Findings
+**Core:** Python 3.9+, pandas 2.x + pyarrow, numpy 1.26+, zoneinfo (stdlib)
+**Charts:** plotly 5.x (standalone HTML per trade + interactive dashboard)
+**ML (M2):** xgboost 2.x + optuna 3.x
+**Market calendar:** pandas_market_calendars (CME calendar for holidays/early closes)
 
-### Stack Dynamics
-Python + Polars + VectorBT (or custom Numba loops). The standard stack relies on rapid vectorization because traditional iterative loops over 10 years of 1-min data (approx 3.4M rows assuming only regular market days, but ~5.2M considering globex) will be too slow, especially for TPO and local profile slice generation. Polars is strongly recommended for its native multithreading and fast grouping abilities. If iterating sequentially for the simulated backtest engine, a Numba JIT-compiled loop is optimal to maintain sub-minute performance.
+**Key decisions:** Bar-by-bar session iteration (not vectorized) — lookahead-free by design. Session-scoped state reset. Pre-computed session profiles (frozen at 9:30 AM).
 
-### Essential Features
-- **SVP Algorithms**: Multi-day state preservation is critical. Moving session bounds (6 PM to 6 PM) over an uninterrupted 10-year array requires precise timezone-aware windowing.
-- **ISMT Engine**: Swing logic with configurable lookbacks properly filtered by variable ATR to prevent micro noise.
-- **Single Print Tracking**: Fast gap detection across consecutive 30-min price buckets.
-- **Execution Simulator**: Stop-loss and risk:reward evaluation must be natively implemented independent of the indicators to avoid look-ahead bias and order execution flaws.
+## Table Stakes
 
-### Architecture
-- `data_handler`: Ingests `nq_1min_10y.parquet`, standardizes timestamps, normalizes ticks.
-- `profile_engine`: Holds logic for SVPs, TPOs, POC, Val Areas, LVN detection.
-- `signal_generator`: Detects Swings, ISMT, LVN touches and Single print confluence points.
-- `simulator`: Processes entry rules chronologically, handles RR logic, Risk/Reward updates, max stop loss calculations, and generates PnL.
+All of the following are required for a valid backtest (non-negotiable):
 
-### Critical Pitfalls
-- **Hindsight Bias in Volume Profile**: Calculating a 24h SVP, but querying its final state *before* the 24h period finishes, leading to future-peeking. Profiles must be built cumulatively up to the current bar, or computed daily but only utilized for the *following* session, or strictly windowed. The strategy specs state it computes at 6PM to 9:30AM but we update real-time with LVN digestion, meaning the profile logic must be fully unrolled on a rolling cumulative basis.
-- **Tick Discretization Errors**: 0.25 tick sizes on floats can lead to floating-point rounding errors when hashing price levels. Must use integer math (e.g., price * 100) internally.
-- **Order Slippage/Fill Assumptions**: LVNs are tight 1-4 tick zones – entering exactly at these zones can mean missed executions. The backtest simulator logic needs a conservative fill assumption (limit order touched but not breached might not fill).
+| Feature | Status |
+|---------|--------|
+| 24h Globex session boundary (6PM→6PM ET) | Required |
+| Hindsight-free swing detection (confirmed_at delay) | Critical |
+| LVN multi-session confluence filter | Required |
+| LVN real-time consolidation invalidation | Required |
+| Overnight SP zone respect check | Required |
+| TPO bias pre-computation (before 9:30 AM) | Required |
+| ISMT detection (single-instrument) | Required |
+| SMT detection (dual-instrument, corr≥0.70) | Required |
+| Full partial exit (60%/40%) | Required |
+| Hard stop on LVN body close | Required |
+| EOD force-close at 3:45 PM ET | Required |
+| Reproducibility gate (2x identical runs) | Required |
+| Per-trade Plotly HTML charts | Required |
+| Output → D:\Algorithms\Wicked Backtest Results | Required |
 
-[End Summary]
+## Watch Out For
+
+**Top 5 risks ranked by severity:**
+
+1. **Symmetric swing detection** (P2) — most common lookahead bias in practice; kills backtest validity silently
+2. **Short trade P&L polarity** (P4) — can make a losing strategy appear profitable
+3. **LVN carry-over across sessions** (P5) — entries at phantom levels; shows as profitable due to hindsight bias
+4. **SMT signals on synthetic bars** (P7) — inflates signal frequency artificially
+5. **DST timezone shifts** (C1) — session windows off by 1 hour twice a year; hard to detect without explicit testing
+
+**Implementation priorities from research:**
+- Use `zoneinfo` exclusively for all timestamp operations
+- Separate `detected_at` from `confirmed_at` for every swing
+- Mark synthetic forward-fill bars and gate all SMT computation on `not is_synthetic`
+- Freeze SVP profile at 9:30 AM — do not rebuild during RTH
+- Commission model: entry + each partial exit = multiple commission events
+- For M2: note additive back-adjustment on NQ means price levels are consistent across the 12-year dataset — no additional normalization needed for M1, but MC engine must still do session-level offset normalization when stitching random chunks
+
+## Architecture Recommendation
+
+**Session-iterator pattern:**
+```
+for session in sessions:
+    pre_rth_bars = session.bars_before_930()
+    profile = build_svp(pre_rth_bars)
+    lvns = detect_and_filter_lvns(profile, prior_sessions)
+    bias = compute_tpo_bias(session.bars_30min_before_930())
+    if bias == 'NEUTRAL': continue
+    sp_zones = detect_and_filter_sp_zones(profile, pre_rth_bars)
+    for bar in session.rth_bars():
+        # stateful bar-by-bar loop
+        update_lvn_validity(lvns, bar)
+        check_entry_conditions(bar, lvns, sp_zones, bias, ...)
+        update_open_positions(bar)
+```
+
+This pattern makes lookahead bias structurally impossible — the profile and zones are computed before the execution loop begins.
