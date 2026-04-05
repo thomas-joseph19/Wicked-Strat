@@ -76,6 +76,14 @@ Plans:
 **Goal**: Resolve every TradeSetup against subsequent bars, implement full 60%/40% partial exit logic, compute P&L (long and short), generate per-trade Plotly HTML charts, and write output to D:\Algorithms\Wicked Backtest Results.
 **Requirements**: SL-01, SL-02, SL-03, SL-04, TP-01, TP-02, TP-03, TP-04, TP-05, TP-06, TP-07, EXEC-01, EXEC-02, EXEC-03, EXEC-04, EXEC-05, EXEC-06, REPORT-01, REPORT-02, REPORT-03, REPORT-04, REPORT-05
 
+**Plans:** 4 plans (4 waves: 1–4)
+
+Plans:
+- [ ] `05-00-PLAN.md` — Wave 1: `tests/phase05/`, `TradeSetup.tp2_price`, `FillEvent`/`TradeResult` stubs, `RunPaths` (D-14), TP-02 + SL contract tests, `entry.build_trade_setup` wiring
+- [ ] `05-01-PLAN.md` — Wave 2: `Position` state machine (D-01–D-06), sizing, PnL/commission, daily cap (EXEC-02..06, TP-03/04/07)
+- [ ] `05-02-PLAN.md` — Wave 3: hard stop body-in-LVN (D-07), EOD flat (D-08), full exit ordering regression (TP-05/06)
+- [ ] `05-03-PLAN.md` — Wave 4: `plotting.py` (D-09–D-11), `reporting.py` incremental CSV + HTML (D-12–D-14), `summary.md` stub, `backtest.py` orchestration (REPORT-01..05)
+
 **Success Criteria**:
 1. Short trade P&L polarity: a short trade entered at 18,000, stopped at 18,050 produces a NEGATIVE net P&L; a short trade exited at 17,950 produces a POSITIVE net P&L
 2. Partial exit accounting: a 5-contract position at TP1 exits 3 contracts (floor of 60%); remaining 2 contracts continue; at TP2 both exit; total commission = (5 × commission) entry + (3 × commission) TP1 exit + (2 × commission) TP2 exit
