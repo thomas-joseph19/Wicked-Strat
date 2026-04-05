@@ -1,55 +1,191 @@
-# Wicked LVN/Ledge Strategy
+# PROJECT: Wicked LVN/Ledge Strategy — Automated Backtest Engine
 
 ## What This Is
-An automated trading agent explicitly designed to exploit market structure rejections at Low Volume Nodes (LVNs) and single prints, combined with ISMT/SMT divergence. Version 1 focuses on strict mechanical automation of the pre-defined 3-step strategy rules using provided 1-minute historical data.
+
+An institutional-grade backtesting engine for the **Wicked LVN/Ledge Strategy**, a price-acceptance / market-structure approach that exploits Low Volume Nodes (LVNs) and thin price areas on NQ futures. The engine mechanizes the strategy rule-by-rule with zero hindsight bias, generates a ground-truth trade log, and produces institutional performance metrics.
+
+**Primary trading instrument:** NQ (Nasdaq-100 Futures)
+**Confluence instrument:** ES (S&P 500 Futures) — used exclusively for SMT divergence detection
+
+**Two milestones:**
+- **M1 — Mechanical Backtest Engine** (V1): Fully mechanized strategy → hindsight-free trade log → institutional metrics
+- **M2 — ML Optimization & Monte Carlo** (V2): ML-filtered signal set → dual-instrument reality-first Monte Carlo → interactive dashboard
+
+---
 
 ## Core Value
-High-precision, mathematically rigorous entries based on volume anomaly rejections, eliminating qualitative or hindsight-biased discretionary entries.
 
-## Context
-- The algorithm targets the NQ/ES futures markets (primarily using 1-minute OHLCV data).
-- The strategy utilizes multi-session Volume Profiles (SVP), TPO (Time Price Opportunity) distributions, and swing divergence (ISMT).
-- An existing 10-year dataset (`nq_1min_10y.parquet`) with OHLCV data is available for V1 backtesting.
+> **Produce a statistically sound, reproducible backtest that proves or disproves whether the Wicked LVN/Ledge strategy has a real, persistent edge on NQ — before any real capital is risked.**
 
-## Definitions
-- **LVN (Low Volume Node):** A price level with statistically low volume, acting as a magnet/rejection zone.
-- **Single Print:** A price level visited exactly once during a 30-minute TPO period.
-- **ISMT:** Intra-Session Market Structure Twist — a pattern of divergence signaling a liquidity sweep trap.
-- **POC:** Point of Control (highest volume price level).
-- **SVP:** Session Volume Profile (anchored to 6:00 PM ET to 6:00 PM ET 24h window).
+If M1 is wrong, everything downstream (ML, MC, live trading) is wrong. M1 correctness is non-negotiable.
+
+---
+
+## Data
+
+| Dataset | File | Shape | Date Range | Columns |
+|---------|------|-------|------------|---------|
+| ES (1-min) | `1Min_ES.parquet` | 4,234,977 rows × 7 cols | 2014-01-02 → 2026-01-30 | Date, Symbol, Open, High, Low, Close, Volume |
+| NQ (1-min) | `nq_1min_10y.parquet` | 5,790,530 rows × 6 cols | 2008-12-11 → 2026-03-26 | open, high, low, close, volume, timestamp |
+
+**Backtest window:** Jan 2, 2014 → Jan 30, 2026 (ES is the limiting dataset — ~12 years)
+**Timezone:** Both datasets use ET (Eastern Time) — verified from session open patterns
+**Column normalization:** On load, both datasets are normalized to a common schema: `{timestamp, open, high, low, close, volume}`
+
+---
+
+## Strategy Summary
+
+The **Wicked LVN/Ledge Strategy** layers three confluences to generate high-probability entries on NQ, with pre-market bias filtering:
+
+1. **Session Volume Profile (SVP)** — Full 24-hour Globex session (6 PM prior → 6 PM), not RTH-only. LVNs (Low Volume Nodes) are thin price areas that act as magnets and rejection zones.
+2. **Single Prints** — Price levels visited in only one 30-minute TPO period, confirmed with <15% of average volume. Respected overnight prints are targets and bias confirmers.
+3. **ISMT / SMT Divergence** — Structural confirmation that a liquidity sweep has occurred:
+   - **ISMT** (Intra-Session Market Structure Twist): Two consecutive swings on NQ where SH2 > SH1 but price closes back through SH1 (bearish) or SL2 < SL1 but closes back above (bullish)
+   - **SMT** (Smart Money Technique): NQ makes higher high while ES fails to confirm (bearish), or NQ makes lower low while ES fails to confirm (bullish)
+   - **Signal priority:** ISMT is weighted slightly higher than SMT (ISMT has stronger single-instrument confirmation)
+4. **TPO Bias** — Pre-market 30-minute bar acceptance: >55% upper = BULLISH, <45% upper = BEARISH, mid = NEUTRAL (no trades)
+
+**Two entry models:**
+- **3-Step Model**: All three confluences must align simultaneously. Full position size.
+- **Aggressive Ledge** (9:25–10:00 AM window): LVN + bias only. Half position size.
+
+**Exit management (full partial exit logic):**
+- TP1: exit 60% at nearest respected SP zone
+- Trail stop to breakeven on remaining 40%
+- TP2: exit remaining 40% at next SP zone
+- Hard stop: body closes inside LVN zone → immediate exit
+- EOD: flat by 3:45 PM ET
+
+---
+
+## Output Directory
+
+All run outputs: `D:\Algorithms\Wicked Backtest Results\run_YYYYMMDD_HHMMSS\`
+
+Structure:
+```
+run_YYYYMMDD_HHMMSS/
+├── trades.csv
+├── summary.md
+├── charts/trade_001.html, ...     (per-trade Plotly candlestick, M1)
+├── feature_dataset.csv            (ML inputs, M2)
+├── inference_log.csv              (ML predictions, M2)
+├── monte_carlo_raw_paths.csv      (MC equity paths, M2)
+├── dashboard.html                 (interactive Plotly dashboard, M2)
+└── summary.json                   (all metrics, machine-readable)
+```
+
+---
+
+## Codebase Structure
+
+```
+project_root/
+├── main.py                     # CLI entry point
+├── requirements.txt
+├── .gitignore
+├── src/
+│   ├── core.py                 # ATR, candle math — pure functions, no state
+│   ├── swings.py               # Swing high/low detection + registry
+│   ├── liquidity.py            # LVN detection, filtering, real-time invalidation
+│   ├── volume_profile.py       # SVP construction, POC, VAH/VAL, single prints
+│   ├── tpo.py                  # TPO bias calculation (30-min bars)
+│   ├── smt.py                  # SMT + ISMT detection, synchronized bar stream
+│   ├── signal.py               # 3-Step Model + Aggressive Ledge entry logic
+│   ├── execution.py            # TradeSetup, TradeResult, evaluate_setup
+│   ├── metrics.py              # Sharpe, Sortino, Max Drawdown, Profit Factor
+│   ├── plotting.py             # Per-trade HTML charts (Plotly candlestick)
+│   └── ml_pipeline.py          # M2: Feature engineering, Walk-Forward, MC engine
+└── data/                       # Symlink or copy of parquet files
+```
+
+---
+
+## Key Decisions
+
+| Decision | Rationale | Outcome |
+|----------|-----------|---------|
+| Both ISMT + SMT in V1 | User confirmed both needed; ISMT weighted slightly higher | — Decided |
+| Full partial exit (60%/40%) | User confirmed full logic required in V1 | — Decided |
+| Output dir: D:\Algorithms\Wicked Backtest Results | Separate drive, not workspace | — Decided |
+| Backtest window: 2014-01-02 → 2026-01-30 | ES dataset is the limiting factor | — Decided |
+| Session: 24h Globex (6PM → 6PM ET) | Strategy explicitly requires overnight context | — Decided |
+| Volume distribution: uniform per bar | Best approximation without tick data | — Pending validation |
+| NQ tick size: 0.25 pts ($5/tick, $20/point) | CME spec | — Decided |
+| Signal priority: ISMT > SMT | User spec: ISMT slightly stronger weight | — Decided |
+| MC engine: dual-instrument synchronized chunk splicing | SMT requires NQ+ES to share chunk boundaries | — Decided (M2) |
+| MC scalar: lognormal (mu=0, sigma=0.3) | Matches real price move distribution | — Decided (M2) |
+
+---
 
 ## Requirements
 
 ### Validated
-- ✓ [Ingestion Pipeline] — Ingest 10y NQ data with timezone-aware session bounds and integer scaling (Phase 1)
-- ✓ [Volume Profile Engine] — Interpolate tick volume, compute POC/VA, and detect raw statistical LVNs (Phase 2)
-- ✓ [Structure & Filtering] — Multi-session confluence, Behavioral Invalidation, and TPO daily bias (Phase 3-4)
-- ✓ [Technical Analysis] — ATR-normalized swings and ISMT Trap-and-Reverse detection (Phase 5)
-- ✓ [Simulation] — End-to-end backtest generator with PnL, Win-Rate, and Drawdown (Phase 6-7)
+*(None yet — ship M1 to validate)*
 
 ### Active
-- [ ] Construct multi-session Session Volume Profiles algorithmically from 1-min data.
-- [ ] Determine Low Volume Node candidates with multi-session conflunce and invalidation tracking.
-- [ ] Implement TPO calculation over 30-minute intervals to define daily market bias.
-- [ ] Identify single prints correctly, evaluating overnight behavior.
-- [ ] Detect valid ISMT (Intra-Session Market Structure Twist) patterns based on parameterized ATR filters and swing high/low logic.
-- [ ] Build the 3-Step Model execution logic for the strategy.
-- [ ] Build the Aggressive Ledge execution logic for the 9:30 AM open window.
-- [ ] Develop the backtesting engine (via Python vectorization/Polars or a framework like VectorBT) incorporating strict rule enforcement and preventing hindsight bias.
-- [ ] Output backtesting metrics and standard performance analytics.
 
-### Out of Scope
-- Machine learning optimizations. (Saved for V2).
-- Options or stock trading integrations. (Designed strictly for NQ/ES futures for now).
-- Arbitrary timeframe analysis aside from 1-min and 30-min definitions.
+**M1 — Core Infrastructure**
+- [ ] Load and normalize both ES and NQ parquet files to unified schema
+- [ ] Session boundary logic: 24h Globex window (6 PM prior → 6 PM ET)
+- [ ] Session Volume Profile (SVP) construction with uniform volume distribution
+- [ ] LVN detection: smoothed local minima below mean − 0.5×std
+- [ ] LVN Filter 1: Multi-session confluence (±2 ticks across 2 prior sessions)
+- [ ] LVN Filter 2: POC proximity exclusion (3-tick radius)
+- [ ] LVN Filter 3: Real-time consolidation invalidation (3 bars or 4 crossings)
+- [ ] LVN Filter 4: Minimum separation (4 ticks, keep stronger)
+- [ ] TPO bias calculation (30-min bars, 55%/45% thresholds)
+- [ ] Single print detection (TPO count=1, volume <15% of mean)
+- [ ] Single print zone grouping (min 4 ticks height)
+- [ ] Overnight respect check per SP zone
+- [ ] Swing high/low detection (±5-bar lookback, 4-tick min threshold, confirmed with delay)
+- [ ] ISMT bullish/bearish detection (within 10 bars, <2×ATR20 sweep size)
+- [ ] SMT bullish/bearish detection (synchronized NQ+ES bar stream, correlation filter ≥0.70)
+- [ ] Signal priority: ISMT slightly stronger than SMT in feature weighting
+- [ ] 3-Step Model entry logic (all three confluences required, bar-close confirmation)
+- [ ] Aggressive Ledge entry logic (9:25–10:00 AM, LVN + bias only, 0.5× size)
+- [ ] Pre-entry checklist: RR≥1.5, SL distance bounds, 3:45 PM cutoff, max 3 trades/session
+- [ ] Stop loss: LVN boundary ± 0.5×ATR5, capped at 4 ticks min / 1.5×ATR20 max
+- [ ] Take profit: TP1 = nearest respected SP zone (60% exit), TP2 = next SP zone (40%)
+- [ ] Breakeven trail: move SL to entry after TP1 hit
+- [ ] Hard stop: body closes inside LVN zone → immediate full exit
+- [ ] EOD close: force-flat by 3:45 PM ET
+- [ ] Position sizing: 1% risk on $100k account
+- [ ] P&L calculation (long + short polarity, commission per side × 2)
+- [ ] Per-trade Plotly HTML charts
+- [ ] Institutional metrics: Sharpe, Sortino, Max Drawdown, Profit Factor
+- [ ] Output: trades.csv, summary.md, charts/ → D:\Algorithms\Wicked Backtest Results
+- [ ] Full audit checklist: reproducibility gate, divide-by-zero guards, polarity checks
 
-## Key Decisions
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Python + Polars/Pandas Stack | Given the large dataset (10y of 1-minute OHLCV data) and the intensive array manipulations for profile math, a high-performance dataframe library is required. | Pending |
-| Tick Volume Mathematical Breakdown | Provide a fallback to approximate tick volume when tick data isn't natively exported. | Pending |
+**M2 — ML + Monte Carlo**
+- [ ] Feature engineering: 12+ features, all lookback-safe
+- [ ] Walk-forward analysis (730-day train / 180-day OOS windows)
+- [ ] XGBoost classifier with Optuna hyperparameter search
+- [ ] Dynamic threshold selection per walk-forward window
+- [ ] Dual-instrument synchronized chunk splicing for MC
+- [ ] Per-candle lognormal scalar (mu=0, sigma=0.3, shared NQ+ES)
+- [ ] Full signal detection re-run on each synthetic path (reality-first)
+- [ ] Slippage stress: $2–$10 per trade random
+- [ ] Ruin barrier: $85k absorbing barrier from $100k start
+- [ ] Dashboard: equity cone + PnL histogram + metric annotation panel
+- [ ] Resume support: incremental CSV write for MC paths
+- [ ] All M2 output files: feature_dataset.csv, inference_log.csv, monte_carlo_raw_paths.csv, dashboard.html, summary.json
+
+### Out of Scope (V1)
+- Live/paper trading execution — backtesting only in M1
+- News calendar integration — edge case, defer to M2 or later
+- Tick data feed — OHLCV uniform distribution approximation used
+- Multi-instrument beyond NQ/ES pair — single pair only
+
+### Out of Scope (V2)
+- Deep learning models (LSTM, transformer) — XGBoost + RF only
+- Portfolio-level optimization — single strategy only
+
+---
 
 ## Evolution
+
 This document evolves at phase transitions and milestone boundaries.
 
 **After each phase transition** (via `/gsd-transition`):
@@ -66,4 +202,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Project lifecycle: Completed 2026-04-03 after Phase 7 results.*
+*Last updated: 2026-04-04 after initialization*
