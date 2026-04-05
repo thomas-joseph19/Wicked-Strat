@@ -122,7 +122,8 @@ project_root/
 ## Requirements
 
 ### Validated
-*(None yet — ship M1 to validate)*
+
+- **Phase 4 (2026-04-05):** ISMT (`IsmtSignal`, D-01/D-02 window), SMT (`SmtSignal`, corr + synthetic gates, 0.3/0.1 ATR divergence), `get_structural_confirmation` (equal priority + recency, SMT tiebreak), 3-Step + Aggressive Ledge + ENTRY-05 + D-14 hooks — see `tests/phase04/` and `04-VERIFICATION.md`. *Note: Phase 4 CONTEXT uses equal ISMT/SMT priority; PROJECT.md strategy line above may still say ISMT-weighted — align in a docs pass.*
 
 ### Active
 
@@ -202,4 +203,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-04 after initialization*
+*Last updated: 2026-04-05 after Phase 4 execution*
